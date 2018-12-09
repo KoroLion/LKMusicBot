@@ -1,4 +1,4 @@
 private_settings.py
 */__pycache__/
 /.idea/
-/music_bot/music/
+/src/music/
