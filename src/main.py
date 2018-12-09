@@ -67,15 +67,16 @@ async def on_message(message: Message):
         return
 
     m_player = bot.music_players.get(message.server.id, None)
-    voice_channel = message.author.voice.voice_channel
+    user_voice_channel = message.author.voice.voice_channel
+    bot_voice_channel = bot.voice_channels.get(message.server.id, None)
 
     if command == 'summon' or command == 'summoning jutsu':
-        if voice_channel:
+        if user_voice_channel:
             if m_player:
                 await m_player.voice_client.disconnect()
-                m_player.voice_client = await bot.join_voice_channel(voice_channel)
+                m_player.voice_client = await bot.join_voice_channel(user_voice_channel)
             else:
-                voice_client = await bot.join_voice_channel(voice_channel)
+                voice_client = await bot.join_voice_channel(user_voice_channel)
                 m_player = MusicPlayer(
                     voice_client,
                     next_song_event_generator(control_channel),
@@ -84,7 +85,7 @@ async def on_message(message: Message):
                 )
 
                 bot.music_players.update({message.server.id: m_player})
-                bot.voice_channels.update({message.server.id: voice_channel})
+                bot.voice_channels.update({message.server.id: user_voice_channel})
 
             username = message.author.nick if message.author.nick else message.author.name
             await bot.send_message(control_channel, 'At your service, sir {}.'.format(username))
@@ -100,7 +101,7 @@ async def on_message(message: Message):
         if not message.author.permissions_in(control_channel).manage_messages:
             return
         m_player.update_songs()
-    elif m_player:
+    elif m_player and user_voice_channel == bot_voice_channel:
         if command == 'bye':
             await bot.disconnect_from_server(message.server.id)
         elif command == 'play':
@@ -140,10 +141,12 @@ async def check_online():
 @bot.event
 async def on_ready():
     print('Logged in as {} ({})'.format(bot.user.name, bot.user.id))
-    await bot.change_presence(game=discord.Game(name='v. {}'.format(settings.BOT_VERSION)))
-
     print('Control channel prefix: {}'.format(settings.CONTROL_CHANNEL_PREFIX))
     print('Music directory: {}'.format(path.abspath(settings.MUSIC_DIRECTORY)))
     print('Bot is member of {} servers'.format(len(bot.servers)))
+
+    await bot.change_presence(game=discord.Game(name='v. {}'.format(settings.BOT_VERSION)))
+    loop = asyncio.get_event_loop()
+    loop.create_task(check_online())
 
 bot.run(settings.BOT_TOKEN)
