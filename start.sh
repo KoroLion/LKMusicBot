@@ -1,1 +1,1 @@
-cd music_bot; PYTHONIOENCODING=UTF-8 screen -dmS lk_music_bot python3 main.py
+cd src; PYTHONIOENCODING=UTF-8 screen -dmS lk_music_bot python3 main.py

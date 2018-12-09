@@ -106,9 +106,8 @@ async def on_message(message: Message):
             await bot.disconnect_from_server(message.server.id)
         elif command == 'play':
             m_player.play()
-        elif command == 'seek':
-            if args:
-                m_player.seek(args[0])
+        elif command == 'seek' and args:
+            m_player.seek(args[0])
         elif command == 'volume':
             if args:
                 m_player.set_volume(args[0])
