@@ -22,19 +22,21 @@ class MusicPlayer(object):
 
         self.update_songs()
 
-    # async def auto_next(self):
-    #     while True:
-    #         await asyncio.sleep(1)
-    #         if not self.player:
-    #             return
-    #         if self.player.is_done():
-    #             self.play_next_song()
+    async def auto_next(self):
+        while True:
+            await asyncio.sleep(1)
+            if not self.player:
+                return
+            if self.player.is_done():
+                self.play_next_song()
 
+    # asyncio.get_event_loop() in main does not finish if this is used
     def song_finished(self):
-        if not self.player:
-            return
-        if self.player.is_done():
-            self.play_next_song()
+        pass
+        # if not self.player:
+        #     return
+        # if self.player.is_done():
+        #     self.play_next_song()
 
     def reset_player(self):
         if self.player:
@@ -51,11 +53,10 @@ class MusicPlayer(object):
 
             # seeking does not changes song
             if not second:
-                print(basename(song_path))
                 self.show_song_event(basename(song_path))
 
-            # loop = asyncio.get_event_loop()
-            # loop.create_task(self.auto_next())
+            loop = asyncio.get_event_loop()
+            loop.create_task(self.auto_next())
         else:
             self.player.resume()
 

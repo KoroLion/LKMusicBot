@@ -2,16 +2,15 @@ import asyncio
 from os import path
 
 import discord
-from discord import Message, Client
+from discord import Message
 
 import settings
+from music_bot import MusicBot
 from music_player import MusicPlayer
 from help_message import help_message
 
-bot = Client()
-voice_channels = {}
-music_players = {}
-loop = None
+
+bot = MusicBot()
 
 
 def get_bot_control_channel(channels):
@@ -24,8 +23,8 @@ def get_bot_control_channel(channels):
 
 def next_song_event_generator(text_channel):
     def next_song_event(song_name):
-        global loop
-        if song_name and loop:
+        if song_name:
+            loop = asyncio.get_event_loop()
             loop.create_task(bot.send_message(text_channel, 'Now playing: **' + song_name + '**'))
             if settings.CURRENT_SONG_IN_STATUS:
                 loop.create_task(bot.change_presence(game=discord.Game(name=song_name)))
@@ -37,15 +36,6 @@ async def incorrect_message(message):
     await bot.delete_message(message)
     if settings.NOTIFY_INVALID_COMMAND:
         await bot.send_message(message.author, 'Sorry, but I deleted your message, because your command is invalid. Send "help" to get help.\nHere is your message: \n*{}*'.format(message.content))
-
-        
-async def disconnect_player(server_id):
-    m_player = music_players.get(server_id, None)
-    m_player.reset_player()
-    await m_player.voice_client.disconnect()
-    del music_players[server_id]
-    del voice_channels[server_id]
-    await bot.change_presence(game=discord.Game(name='v. {}'.format(settings.BOT_VERSION)))
 
 
 @bot.event
@@ -76,7 +66,7 @@ async def on_message(message: Message):
     if control_channel.id != message.channel.id:
         return
 
-    m_player = music_players.get(message.server.id, None)
+    m_player = bot.music_players.get(message.server.id, None)
     voice_channel = message.author.voice.voice_channel
 
     if command == 'summon' or command == 'summoning jutsu':
@@ -93,8 +83,8 @@ async def on_message(message: Message):
                     settings.DEFAULT_VOLUME
                 )
 
-                music_players.update({message.server.id: m_player})
-                voice_channels.update({message.server.id: voice_channel})
+                bot.music_players.update({message.server.id: m_player})
+                bot.voice_channels.update({message.server.id: voice_channel})
 
             username = message.author.nick if message.author.nick else message.author.name
             await bot.send_message(control_channel, 'At your service, sir {}.'.format(username))
@@ -112,7 +102,7 @@ async def on_message(message: Message):
         m_player.update_songs()
     elif m_player:
         if command == 'bye':
-            await disconnect_player(message.server.id)
+            await bot.disconnect_from_server(message.server.id)
         elif command == 'play':
             m_player.play()
         elif command == 'seek':
@@ -140,27 +130,17 @@ async def on_message(message: Message):
 
 async def check_online():
     while True:
-        to_leave = []
-        for server_id in voice_channels:
-            voice_channel = voice_channels.get(server_id, None)
-            if voice_channel:
-                if len(voice_channel.voice_members) < 2:
-                    to_leave.append(server_id)
-
+        to_leave = bot.get_empty_servers_id()
         for server_id in to_leave:
-            await disconnect_player(server_id)
+            await bot.disconnect_from_server(server_id)
 
-        await asyncio.sleep(1)
+        await asyncio.sleep(10)
 
 
 @bot.event
 async def on_ready():
-    global loop
-
     print('Logged in as {} ({})'.format(bot.user.name, bot.user.id))
     await bot.change_presence(game=discord.Game(name='v. {}'.format(settings.BOT_VERSION)))
-    loop = asyncio.get_event_loop()
-    loop.create_task(check_online())
 
     print('Control channel prefix: {}'.format(settings.CONTROL_CHANNEL_PREFIX))
     print('Music directory: {}'.format(path.abspath(settings.MUSIC_DIRECTORY)))
