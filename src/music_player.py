@@ -7,12 +7,12 @@ from discord import VoiceClient
 
 
 class MusicPlayer(object):
-    def __init__(self, voice_client: VoiceClient, show_song_event, music_directory: str, default_volume: float = 0.5):
+    def __init__(self, voice_client: VoiceClient, show_song_event, music_directory: str, current_volume: float = 50):
         self.voice_client = voice_client
 
         self.show_song_event = show_song_event
         self.music_directory = music_directory
-        self.default_volume = default_volume
+        self.current_volume = current_volume / 100
 
         self.songs = None
         self.player = None
@@ -48,7 +48,7 @@ class MusicPlayer(object):
             song_path = self.songs[self.current_song_id]
 
             self.player = self.voice_client.create_ffmpeg_player(song_path, before_options='-ss {}'.format(second), after=self.song_finished)
-            self.player.volume = self.default_volume
+            self.player.volume = self.current_volume
             self.player.start()
 
             # seeking does not changes song
@@ -63,12 +63,21 @@ class MusicPlayer(object):
     def set_volume(self, volume):
         try:
             volume = int(volume)
-            self.player.volume = volume / 100
+            if volume > 100:
+                volume = 100
+            elif volume < 0:
+                volume = 0
+
+            volume /= 100
+
+            self.current_volume = volume
+            if self.player:
+                self.player.volume = volume
         except ValueError:
             pass
 
     def get_volume(self):
-        return round(self.player.volume * 100)
+        return round(self.current_volume * 100)
 
     def seek(self, seconds):
         try:

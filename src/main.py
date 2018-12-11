@@ -46,7 +46,7 @@ async def on_message(message: Message):
         return
 
     content = message.content.split(' ')
-    command = content[0]
+    command = content[0].lower()
     if len(content) > 1:
         args = content[1:]
     else:
