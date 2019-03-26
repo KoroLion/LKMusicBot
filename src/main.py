@@ -43,6 +43,7 @@ async def on_message(message: Message):
     if message.author.id == bot.user.id:
         return
     if not message.content:
+        await bot.delete_message(message)
         return
 
     content = message.content.split(' ')
@@ -105,23 +106,49 @@ async def on_message(message: Message):
         if command == 'bye':
             await bot.disconnect_from_server(message.server.id)
         elif command == 'play':
-            m_player.play()
+            await m_player.play()
         elif command == 'seek' and args:
-            m_player.seek(args[0])
+            await m_player.seek(args[0])
         elif command == 'volume':
             if args:
-                m_player.set_volume(args[0])
+                success = m_player.set_volume(args[0])
+                if not success:
+                    await incorrect_message(message)
+                else:
+                    await bot.send_message(control_channel, 'New volume is {}%'.format(m_player.get_volume()))
             else:
-                await bot.send_message(control_channel, 'Current volume is {}'.format(m_player.get_volume()))
+                await bot.send_message(control_channel, 'Current volume is {}%'.format(m_player.get_volume()))
         elif command == 'pause':
             m_player.pause()
         elif command == 'stop':
             await bot.change_presence(game=discord.Game(name='v. {}'.format(settings.BOT_VERSION)))
             m_player.reset_player()
         elif command == 'next':
-            m_player.play_next_song()
+            await m_player.play_next_song()
         elif command == 'prev':
-            m_player.play_previous_song()
+            await m_player.play_previous_song()
+        elif command == 'add' and args:
+            success = m_player.add_to_playlist(args[0])
+            if not success:
+                await incorrect_message(message)
+        elif command == 'delete' and args:
+            song = m_player.delete_from_playlist(args[0])
+            if not song:
+                await incorrect_message(message)
+            else:
+                await bot.send_message(control_channel, '***{}.** {} was deleted from playlist!*'.format(args[0], song.title))
+        elif command == 'playlist':
+            plist_msg = ''
+            i = 1
+            for song_title in m_player.get_playlist_titles():
+                plist_msg += '**{}**. *{}*\n'.format(i, song_title)
+                i += 1
+            await bot.send_message(control_channel, plist_msg)
+        elif command == 'select' and args:
+            try:
+                await m_player.select_song(args[0])
+            except Exception:
+                await incorrect_message(message)
         else:
             await incorrect_message(message)
     else:
@@ -142,10 +169,10 @@ async def on_ready():
     print('Logged in as {} ({})'.format(bot.user.name, bot.user.id))
     print('Control channel prefix: {}'.format(settings.CONTROL_CHANNEL_PREFIX))
     print('Music directory: {}'.format(path.abspath(settings.MUSIC_DIRECTORY)))
-    print('Bot is member of {} servers'.format(len(bot.servers)))
+    print('Bot is a member of {} guilds.'.format(len(bot.servers)))
 
     await bot.change_presence(game=discord.Game(name='v. {}'.format(settings.BOT_VERSION)))
     loop = asyncio.get_event_loop()
-    loop.create_task(check_online())
+    await loop.create_task(check_online())
 
 bot.run(settings.BOT_TOKEN)

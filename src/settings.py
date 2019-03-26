@@ -5,7 +5,7 @@ try:
 except ImportError:
     DEBUG = False
 
-BOT_VERSION = '0.3.1'
+BOT_VERSION = '0.4.0'
 
 MUSIC_DIRECTORY = 'music'
 CONTROL_CHANNEL_PREFIX = '🎵'
