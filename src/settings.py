@@ -1,19 +1,20 @@
-from private_settings import BOT_TOKEN_DEBUG, BOT_TOKEN_PROD
+import configparser
 
-try:
-    from debug import DEBUG
-except ImportError:
-    DEBUG = False
+BOT_VERSION = '0.4.1'
+RELEASE_DATE = '28.03.2019'
 
-BOT_VERSION = '0.4.0'
+config = configparser.ConfigParser()
+config.read('./settings.ini', encoding='utf8')
+config = config['TEST']
 
-MUSIC_DIRECTORY = 'music'
-CONTROL_CHANNEL_PREFIX = '🎵'
-DEFAULT_VOLUME = 30
-CURRENT_SONG_IN_STATUS = True
-NOTIFY_INVALID_COMMAND = True
+DEBUG = config.getboolean('Debug', True)
+MUSIC_DIRECTORY = config.get('MusicDirectory', 'music')
+CONTROL_CHANNEL_PREFIX = config.get('ControlChannelPrefix', '🎵')
+DEFAULT_VOLUME = int(config.get('DefaultVolume', 30))
+CURRENT_SONG_IN_STATUS = config.getboolean('CurrentSongInStatus', True)
+NOTIFY_INVALID_COMMAND = config.getboolean('NotifyInvalidCommand', True)
 
 if DEBUG:
-    BOT_TOKEN = BOT_TOKEN_DEBUG
+    BOT_TOKEN = config.get('BotTokenDebug', None)
 else:
-    BOT_TOKEN = BOT_TOKEN_PROD
+    BOT_TOKEN = config.get('BotTokenProd', None)

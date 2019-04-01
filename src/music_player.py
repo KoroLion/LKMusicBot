@@ -52,29 +52,34 @@ class MusicPlayer(object):
 
     async def play(self, seconds: int = 0):
         if not self.player:
-            song = self.playlist[self.current_song_id]
-            song_path = song.url
+            if self.playlist:
+                song = self.playlist[self.current_song_id]
+                song_path = song.url
 
-            if song_path.startswith('http://') or song_path.startswith('https://'):
-                b_opt = '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -ss {}'.format(seconds)
-                self.player = await self.voice_client.create_ytdl_player(song_path, before_options=b_opt)
+                if song_path.startswith('http://') or song_path.startswith('https://'):
+                    b_opt = '-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5 -ss {}'.format(seconds)
+                    self.player = await self.voice_client.create_ytdl_player(song_path, before_options=b_opt)
+                else:
+                    b_opt = '-ss {}'.format(seconds)
+                    self.player = self.voice_client.create_ffmpeg_player(song_path, before_options=b_opt, after=self.song_finished)
+
+                song_name = song.title
+
+                self.player.volume = self.current_volume
+                self.player.start()
+
+                # seeking does not changes song
+                if not seconds:
+                    self.show_song_event(song_name)
+
+                loop = asyncio.get_event_loop()
+                await loop.create_task(self.auto_next())
+                return True
             else:
-                b_opt = '-ss {}'.format(seconds)
-                self.player = self.voice_client.create_ffmpeg_player(song_path, before_options=b_opt, after=self.song_finished)
-
-            song_name = song.title
-
-            self.player.volume = self.current_volume
-            self.player.start()
-
-            # seeking does not changes song
-            if not seconds:
-                self.show_song_event(song_name)
-
-            loop = asyncio.get_event_loop()
-            await loop.create_task(self.auto_next())
+                return False
         else:
             self.player.resume()
+            return True
 
     def set_volume(self, volume):
         try:
@@ -156,12 +161,24 @@ class MusicPlayer(object):
         except Exception:
             return False
 
-    def delete_from_playlist(self, sid: int):
+    async def delete_from_playlist(self, sid: int = None):
         try:
-            sid = int(sid) - 1
+            if sid is None:
+                sid = self.current_song_id
+            else:
+                sid = int(sid) - 1
+
             if sid >= len(self.playlist) or sid < 0:
                 raise ValueError('Invalid index!')
+
             song = self.playlist.pop(sid)
+            self.current_song_id -= 1
+
+            if sid - 1 == self.current_song_id:
+                # todo: fix: it freezes here because await play in next
+                await self.play_next_song()
+                return song
+
             return song
         except Exception:
             return False

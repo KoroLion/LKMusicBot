@@ -5,6 +5,7 @@ import discord
 from discord import Message
 
 import settings
+
 from music_bot import MusicBot
 from music_player import MusicPlayer
 from help_message import help_message
@@ -42,6 +43,14 @@ async def incorrect_message(message):
 async def on_message(message: Message):
     if message.author.id == bot.user.id:
         return
+
+    control_channel = get_bot_control_channel(message.server.channels)
+
+    if not control_channel:
+        return
+    if control_channel.id != message.channel.id:
+        return
+
     if not message.content:
         await bot.delete_message(message)
         return
@@ -58,13 +67,6 @@ async def on_message(message: Message):
             await bot.send_message(message.author, "I didn't get that. But there are available commands:")
         await bot.send_message(message.author, help_message)
 
-        return
-
-    control_channel = get_bot_control_channel(message.server.channels)
-
-    if not control_channel:
-        return
-    if control_channel.id != message.channel.id:
         return
 
     m_player = bot.music_players.get(message.server.id, None)
@@ -106,7 +108,9 @@ async def on_message(message: Message):
         if command == 'bye':
             await bot.disconnect_from_server(message.server.id)
         elif command == 'play':
-            await m_player.play()
+            success = await m_player.play()
+            if not success:
+                await incorrect_message(message)
         elif command == 'seek' and args:
             await m_player.seek(args[0])
         elif command == 'volume':
@@ -131,19 +135,32 @@ async def on_message(message: Message):
             success = m_player.add_to_playlist(args[0])
             if not success:
                 await incorrect_message(message)
-        elif command == 'delete' and args:
-            song = m_player.delete_from_playlist(args[0])
+        elif command == 'delete':
+            if args:
+                song = await m_player.delete_from_playlist(args[0])
+            else:
+                song = await m_player.delete_from_playlist()
+
             if not song:
                 await incorrect_message(message)
             else:
+                # todo: execute playlist command here
                 await bot.send_message(control_channel, '***{}.** {} was deleted from playlist!*'.format(args[0], song.title))
         elif command == 'playlist':
             plist_msg = ''
             i = 1
             for song_title in m_player.get_playlist_titles():
-                plist_msg += '**{}**. *{}*\n'.format(i, song_title)
+                if m_player.current_song_id == i - 1:
+                    song_title = '**' + song_title + '**'
+                else:
+                    song_title = '*' + song_title + '*'
+
+                plist_msg += '**{}**. {}\n'.format(i, song_title)
                 i += 1
-            await bot.send_message(control_channel, plist_msg)
+            if plist_msg:
+                await bot.send_message(control_channel, plist_msg)
+            else:
+                await bot.send_message(control_channel, '*The playlist is empty!*')
         elif command == 'select' and args:
             try:
                 await m_player.select_song(args[0])
